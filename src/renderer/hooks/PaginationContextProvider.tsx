@@ -1,6 +1,6 @@
 /**
  * TagSpaces - universal file and folder organizer
- * Copyright (C) 2023-present TagSpaces UG (haftungsbeschraenkt)
+ * Copyright (C) 2023-present TagSpaces GmbH
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License (version 3) as
@@ -21,6 +21,7 @@ import { useDirectoryContentContext } from '-/hooks/useDirectoryContentContext';
 import { defaultSettings } from '-/perspectives/grid';
 import { useSortedDirContext } from '-/perspectives/grid/hooks/useSortedDirContext';
 import { TS } from '-/tagspaces.namespace';
+import { usePerspectiveSettingsContext } from '-/hooks/usePerspectiveSettingsContext';
 
 type PaginationContextData = {
   page: number;
@@ -42,8 +43,9 @@ export const PaginationContextProvider = ({
   children,
 }: PaginationContextProviderProps) => {
   const initPage = 1;
-  const { currentDirectoryPath } = useDirectoryContentContext();
-  const { settings, sortedDirContent } = useSortedDirContext();
+  const { currentDirectoryPath, isSearchMode } = useDirectoryContentContext();
+  const { settings, showDirectories } = usePerspectiveSettingsContext();
+  const { sortedDirContent } = useSortedDirContext();
 
   const [page, setPage] = useState<number>(initPage);
   // const firstRender = useFirstRender();
@@ -59,7 +61,7 @@ export const PaginationContextProvider = ({
         console.debug('meta loaded')
       );
     }*/
-  }, [currentDirectoryPath]); //, isMetaFolderExist]);
+  }, [currentDirectoryPath, isSearchMode]); //, isMetaFolderExist]);
 
   const pageFiles: TS.FileSystemEntry[] = useMemo(() => {
     return getPageFiles(page, sortedDirContent);
@@ -70,7 +72,15 @@ export const PaginationContextProvider = ({
       settings && settings.gridPageLimit
         ? settings.gridPageLimit
         : defaultSettings.gridPageLimit;
-    const files = dirContent.filter((entry) => entry && entry.isFile);
+    const files = dirContent.filter((entry) => {
+      if (entry) {
+        if (!showDirectories) {
+          return entry.isFile;
+        }
+        return true;
+      }
+      return false;
+    });
     const showPagination = gridPageLimit && files.length > gridPageLimit;
     if (showPagination) {
       const start = (currentPage - 1) * gridPageLimit;
@@ -100,7 +110,7 @@ export const PaginationContextProvider = ({
       pageFiles,
       setCurrentPage,
     };
-  }, [page, pageFiles, currentDirectoryPath]);
+  }, [page, pageFiles, currentDirectoryPath, settings]);
 
   return (
     <PaginationContext.Provider value={context}>

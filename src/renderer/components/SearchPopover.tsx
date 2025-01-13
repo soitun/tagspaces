@@ -1,6 +1,6 @@
 /**
  * TagSpaces - universal file and folder organizer
- * Copyright (C) 2017-present TagSpaces UG (haftungsbeschraenkt)
+ * Copyright (C) 2017-present TagSpaces GmbH
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License (version 3) as
@@ -16,63 +16,65 @@
  *
  */
 
-import React, { useReducer, useRef, useState } from 'react';
-import { useSelector } from 'react-redux';
-import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
-/*import DateFnsUtils from '@date-io/date-fns';*/
-import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import Box from '@mui/material/Box';
-import Typography from '@mui/material/Typography';
-import MenuItem from '@mui/material/MenuItem';
+import AppConfig from '-/AppConfig';
+import {
+  ArchiveIcon,
+  AudioIcon,
+  BookIcon,
+  BookmarkIcon,
+  CloseIcon,
+  CreateFileIcon,
+  DocumentIcon,
+  EditIcon,
+  EmailIcon,
+  FileIcon,
+  FolderIcon,
+  InfoTooltipIcon,
+  NoteIcon,
+  PictureIcon,
+  UntaggedIcon,
+  VideoIcon,
+} from '-/components/CommonIcons';
+import { ProLabel, ProTooltip } from '-/components/HelperComponents';
+import { SidePanel, classes } from '-/components/SidePanels.css';
 import Tooltip from '-/components/Tooltip';
-import Button from '@mui/material/Button';
-import Grid from '@mui/material/Grid';
-import OutlinedInput from '@mui/material/OutlinedInput';
-import TextField from '@mui/material/TextField';
-import InputLabel from '@mui/material/InputLabel';
-import IconButton from '@mui/material/IconButton';
-import Select from '@mui/material/Select';
-import FormControl from '@mui/material/FormControl';
-import ButtonGroup from '@mui/material/ButtonGroup';
-import ToggleButton from '@mui/material/ToggleButton';
-import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
-import { mergeWithExtractedTags } from '@tagspaces/tagspaces-common/misc';
-import TagsSelect from './TagsSelect';
+import TsButton from '-/components/TsButton';
+import TsIconButton from '-/components/TsIconButton';
+import TsTextField from '-/components/TsTextField';
+import { useDirectoryContentContext } from '-/hooks/useDirectoryContentContext';
+import { useLocationIndexContext } from '-/hooks/useLocationIndexContext';
+import { useSavedSearchesContext } from '-/hooks/useSavedSearchesContext';
 import {
   getMaxSearchResults,
   getShowUnixHiddenEntries,
+  isDesktopMode,
 } from '-/reducers/settings';
 import { FileTypeGroups, haveSearchFilters } from '-/services/search';
-import { Pro } from '../pro';
-import { parseGeoLocation, parseLatLon } from '-/utils/geo';
-import { getSearches } from '-/reducers/searches';
-import { TS } from '-/tagspaces.namespace';
-import { ProLabel, BetaLabel, ProTooltip } from '-/components/HelperComponents';
-import Links from 'assets/links';
-import {
-  CreateFileIcon,
-  FolderIcon,
-  UntaggedIcon,
-  FileIcon,
-  BookmarkIcon,
-  BookIcon,
-  DateIcon,
-  EmailIcon,
-  EditIcon,
-  PictureIcon,
-  DocumentIcon,
-  NoteIcon,
-  AudioIcon,
-  VideoIcon,
-  ArchiveIcon,
-  CloseIcon,
-} from '-/components/CommonIcons';
 import { openURLExternally } from '-/services/utils-io';
+import { TS } from '-/tagspaces.namespace';
+import { parseGeoLocation, parseLatLon } from '-/utils/geo';
+import Box from '@mui/material/Box';
+import ButtonGroup from '@mui/material/ButtonGroup';
+import FormControl from '@mui/material/FormControl';
+import FormHelperText from '@mui/material/FormHelperText';
+import Grid from '@mui/material/Grid';
+import InputAdornment from '@mui/material/InputAdornment';
+import MenuItem from '@mui/material/MenuItem';
+import OutlinedInput from '@mui/material/OutlinedInput';
+import Select from '@mui/material/Select';
+import ToggleButton from '@mui/material/ToggleButton';
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
+import Typography from '@mui/material/Typography';
 import { useTheme } from '@mui/material/styles';
-import { classes, SidePanel } from '-/components/SidePanels.css';
+import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { mergeWithExtractedTags } from '@tagspaces/tagspaces-common/misc';
+import Links from 'assets/links';
+import React, { useReducer, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useDirectoryContentContext } from '-/hooks/useDirectoryContentContext';
-import { useLocationIndexContext } from '-/hooks/useLocationIndexContext';
+import { useSelector } from 'react-redux';
+import { Pro } from '../pro';
+import TagsSelect from './TagsSelect';
 
 const SaveSearchDialog = Pro && Pro.UI ? Pro.UI.SaveSearchDialog : false;
 
@@ -86,6 +88,7 @@ interface Props {
 
 function SearchPopover(props: Props) {
   const { t } = useTranslation();
+  const desktopMode = useSelector(isDesktopMode);
   const theme = useTheme();
   const {
     openCurrentDirectory,
@@ -94,13 +97,11 @@ function SearchPopover(props: Props) {
     setSearchQuery,
     exitSearchMode,
   } = useDirectoryContentContext();
+  const { searches } = useSavedSearchesContext();
   const { getIndex, isIndexing } = useLocationIndexContext();
-  const [, forceUpdate] = useReducer((x) => x + 1, 0);
+  const [, forceUpdate] = useReducer((x) => x + 1, 0, undefined);
   const maxSearchResults = useSelector(getMaxSearchResults);
-  const searches = useSelector(getSearches);
   const showUnixHiddenEntries = useSelector(getShowUnixHiddenEntries);
-  // const textQuery = useRef<string>(searchQuery.textQuery);
-  // const tagsAND = useRef<Array<TS.Tag>>(searchQuery.tagsAND);
   const fileTypes = useRef<Array<string>>(
     searchQuery.fileTypes ? searchQuery.fileTypes : FileTypeGroups.any,
   );
@@ -108,23 +109,20 @@ function SearchPopover(props: Props) {
   const searchBoxing = searchQuery.searchBoxing
     ? searchQuery.searchBoxing
     : 'location';
-  // useRef<'fuzzy' | 'semistrict' | 'strict'>(
   const searchType = searchQuery.searchType ? searchQuery.searchType : 'fuzzy';
   const lastModified = useRef<string>(
     searchQuery.lastModified ? searchQuery.lastModified : '',
   );
   const [saveSearchDialogOpened, setSaveSearchDialogOpened] =
     useState<TS.SearchQuery>(undefined);
-  // const tagTimePeriod = useRef<string>('');
-  // const tagTimePeriodHelper = useRef<string>(' ');
   const [tagPlace, setTagPlace] = useState<string>(' ');
   const [tagPlaceHelper, setTagPlaceHelper] = useState<string>(' ');
   const tagTimePeriodFrom = searchQuery.tagTimePeriodFrom // useRef<number | null>(
     ? searchQuery.tagTimePeriodFrom
-    : null;
+    : undefined;
   const tagTimePeriodTo = searchQuery.tagTimePeriodTo //useRef<number | null>(
     ? searchQuery.tagTimePeriodTo
-    : null;
+    : undefined;
   const [tagPlaceLat, setTagPlaceLat] = useState<number | null>(null);
   const [tagPlaceLong, setTagPlaceLong] = useState<number | null>(null);
   // const [tagPlaceRadius, setTagPlaceRadius] = useState<number>(0);
@@ -134,10 +132,6 @@ function SearchPopover(props: Props) {
   const fileSize = useRef<string>(
     searchQuery.fileSize ? searchQuery.fileSize : '',
   );
-
-  /*useEffect(() => {
-    props.setTextQuery(searchQuery.textQuery);
-  }, [searchQuery]);*/
 
   const handleFileTypeChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const { target } = event;
@@ -159,10 +153,8 @@ function SearchPopover(props: Props) {
   const handleFileSizeChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const { target } = event;
     const { value, name } = target;
-
     if (name === 'fileSize') {
       fileSize.current = value;
-
       setSearchQuery({
         ...searchQuery,
         searchBoxing: searchBoxing,
@@ -196,7 +188,6 @@ function SearchPopover(props: Props) {
   ) => {
     const { target } = event;
     const { value } = target;
-
     const savedSearch = searches.find((search) => search.uuid === value);
     if (!savedSearch) {
       return true;
@@ -205,26 +196,7 @@ function SearchPopover(props: Props) {
     fileTypes.current = savedSearch.fileTypes;
     lastModified.current = savedSearch.lastModified;
     fileSize.current = savedSearch.fileSize;
-    //searchType.current = savedSearch.searchType;
-    //searchBoxing.current = savedSearch.searchBoxing;
     forceIndexing.current = savedSearch.forceIndexing;
-
-    //let ttPeriod;
-    // tagTimePeriodFrom.current = savedSearch.tagTimePeriodFrom;
-    /* if (savedSearch.tagTimePeriodFrom) {
-      ttPeriod = format(new Date(savedSearch.tagTimePeriodFrom), 'yyyyMMdd');
-    }*/
-
-    // tagTimePeriodTo.current = savedSearch.tagTimePeriodTo;
-    /*if (savedSearch.tagTimePeriodTo) {
-      ttPeriod +=
-        '-' + format(new Date(savedSearch.tagTimePeriodTo), 'yyyyMMdd');
-    }*/
-
-    /*if (ttPeriod) {
-      tagTimePeriod.current = ttPeriod;
-    }*/
-
     setSearchQuery({
       ...savedSearch,
       tagTimePeriodFrom: savedSearch.tagTimePeriodFrom,
@@ -241,20 +213,20 @@ function SearchPopover(props: Props) {
   }
 
   const handleTagFieldChange = (name, value, reason) => {
-    let searchQuery;
+    let sq;
     if (reason === 'remove-value') {
       if (name === 'tagsAND') {
-        searchQuery = {
+        sq = {
           ...searchQuery,
           tagsAND: removeTags(searchQuery.tagsAND, value),
         };
       } else if (name === 'tagsNOT') {
-        searchQuery = {
+        sq = {
           ...searchQuery,
           tagsNOT: removeTags(searchQuery.tagsNOT, value),
         };
       } else if (name === 'tagsOR') {
-        searchQuery = {
+        sq = {
           ...searchQuery,
           tagsOR: removeTags(searchQuery.tagsOR, value),
         };
@@ -262,18 +234,18 @@ function SearchPopover(props: Props) {
     } else {
       // eslint-disable-next-line no-lonely-if
       if (name === 'tagsAND') {
-        searchQuery = { ...searchQuery, tagsAND: value };
+        sq = { ...searchQuery, tagsAND: value };
       } else if (name === 'tagsNOT') {
-        searchQuery = { ...searchQuery, tagsNOT: value };
+        sq = { ...searchQuery, tagsNOT: value };
       } else if (name === 'tagsOR') {
-        searchQuery = { ...searchQuery, tagsOR: value };
+        sq = { ...searchQuery, tagsOR: value };
       }
     }
-    if (!haveSearchFilters(searchQuery)) {
+    if (!haveSearchFilters(sq)) {
       clearSearch();
     } else {
       setSearchQuery({
-        ...searchQuery,
+        ...sq,
         searchBoxing: searchBoxing,
         showUnixHiddenEntries,
         executeSearch: false,
@@ -286,29 +258,6 @@ function SearchPopover(props: Props) {
     const { value } = target;
     props.setTextQuery(value);
   };
-
-  /*const handleTimePeriodChange = event => {
-    const { target } = event;
-    const { value } = target;
-    const { fromDateTime, toDateTime } = extractTimePeriod(value);
-
-    if (toDateTime && fromDateTime) {
-      const tagTPeriodHelper =
-        'From: ' +
-        formatDateTime(fromDateTime) +
-        ' To: ' +
-        formatDateTime(toDateTime);
-      tagTimePeriodFrom.current = fromDateTime.getTime();
-      tagTimePeriodTo.current = toDateTime.getTime();
-      tagTimePeriodHelper.current = tagTPeriodHelper;
-    } else {
-      tagTimePeriodFrom.current = null;
-      tagTimePeriodTo.current = null;
-      tagTimePeriodHelper.current = ' ';
-    }
-    // tagTimePeriod.current = value;
-    forceUpdate();
-  };*/
 
   const handlePlaceChange = (event) => {
     const { target } = event;
@@ -350,25 +299,19 @@ function SearchPopover(props: Props) {
 
   const clearSearch = () => {
     props.setTextQuery('');
-    //searchBoxing.current = 'location';
-    //searchType.current = 'fuzzy';
     fileTypes.current = FileTypeGroups.any;
     lastModified.current = '';
-    // tagTimePeriod.current = '';
-    //tagTimePeriodHelper.current = ' ';
     setTagPlace(' ');
     setTagPlaceHelper(' ');
-    //tagTimePeriodFrom.current = null;
-    //tagTimePeriodTo.current = null;
     setTagPlaceLat(null);
     setTagPlaceLong(null);
-    // setTagPlaceRadius(0);
     forceIndexing.current = false;
     fileSize.current = '';
-    setSearchQuery({});
-    exitSearchMode();
     props.onClose();
-    openCurrentDirectory();
+    openCurrentDirectory().then(() => {
+      setSearchQuery({});
+      exitSearchMode();
+    });
   };
 
   const saveSearch = (isNew = true) => {
@@ -420,9 +363,6 @@ function SearchPopover(props: Props) {
         searchBoxing: boxing,
         executeSearch: false,
       });
-
-      /*searchBoxing.current = boxing;
-      forceUpdate();*/
     }
   };
 
@@ -436,9 +376,6 @@ function SearchPopover(props: Props) {
         searchType: type,
         executeSearch: false,
       });
-
-      /*searchType.current = type;
-      forceUpdate();*/
     }
   };
 
@@ -505,14 +442,13 @@ function SearchPopover(props: Props) {
         >
           {'(' + indexStatus + ')'}
         </Typography>
-        <IconButton
+        <TsIconButton
           style={{ marginLeft: 'auto' }}
           data-tid="closeSearchTID"
           onClick={props.onClose}
-          size="large"
         >
           <CloseIcon />
-        </IconButton>
+        </TsIconButton>
       </div>
       <div
         style={{
@@ -542,19 +478,18 @@ function SearchPopover(props: Props) {
                 variant="outlined"
                 style={{ width: '100%', marginTop: 6 }}
               >
-                <InputLabel
-                  id="saved-searches"
-                  style={{ backgroundColor: theme.palette.background.default }}
-                >
+                <FormHelperText style={{ marginLeft: 0 }}>
                   {t('core:savedSearchesTitle')}
-                </InputLabel>
+                </FormHelperText>
                 <Select
                   name="savedSearch"
                   labelId="saved-searches"
-                  disabled={isIndexing || !Pro}
+                  disabled={isIndexing !== undefined || !Pro}
+                  size={desktopMode ? 'small' : 'medium'}
                   onChange={handleSavedSearchChange}
                   displayEmpty
                   fullWidth
+                  variant="outlined"
                   value={searchQuery.uuid ? searchQuery.uuid : -1}
                 >
                   <MenuItem value={-1} style={{ display: 'none' }} />
@@ -570,7 +505,11 @@ function SearchPopover(props: Props) {
               </FormControl>
             </ProTooltip>
           </Grid>
-          <Grid item xs={3} style={{ display: 'flex', alignSelf: 'center' }}>
+          <Grid
+            item
+            xs={3}
+            style={{ display: 'flex', alignSelf: 'center', paddingTop: 40 }}
+          >
             <ButtonGroup
               style={{
                 textAlign: 'center',
@@ -578,40 +517,87 @@ function SearchPopover(props: Props) {
               }}
             >
               {searchQuery.uuid && (
-                <Tooltip title={t('editSavedSearchTitle')}>
-                  <IconButton
-                    data-tid="editSearchBtnTID"
-                    size="small"
-                    onClick={() => saveSearch(false)}
-                  >
-                    <EditIcon />
-                  </IconButton>
-                </Tooltip>
-              )}
-              <Tooltip title={t('createNewSavedSearchTitle')}>
-                <IconButton
-                  disabled={!Pro}
-                  data-tid="addSearchBtnTID"
-                  size="small"
-                  onClick={() => saveSearch()}
+                <TsIconButton
+                  tooltip={t('editSavedSearchTitle')}
+                  data-tid="editSearchBtnTID"
+                  onClick={() => saveSearch(false)}
                 >
-                  <CreateFileIcon />
-                </IconButton>
-              </Tooltip>
+                  <EditIcon />
+                </TsIconButton>
+              )}
+              <TsIconButton
+                tooltip={t('createNewSavedSearchTitle')}
+                disabled={!Pro}
+                data-tid="addSearchBtnTID"
+                onClick={() => saveSearch()}
+              >
+                <CreateFileIcon />
+              </TsIconButton>
             </ButtonGroup>
           </Grid>
           <Grid item xs={12}>
-            <TextField
+            <TsTextField
               id="searchTerm"
-              label={t('core:searchHasTheWords')}
+              label={t('core:searchQueryInfo')}
               value={props.textQuery}
               onChange={handleSearchTermChange}
+              size={desktopMode ? 'small' : 'medium'}
               onKeyDown={startSearch}
-              style={{ width: '100%' }}
+              slotProps={{
+                input: {
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <Tooltip
+                        title={
+                          <>
+                            <Typography variant="subtitle1" color="inherit">
+                              Tips for the extended search
+                            </Typography>
+                            <Typography variant="subtitle2" color="inherit">
+                              💡 <b>{'sun'}</b> - will match entries having the
+                              word sun but also san or sum in the name
+                              <br />
+                              💡 <b>{'=sun'}</b> - will match entries having
+                              exactly the word sun in the name
+                              <br />
+                              💡 <b>{'"sun and beach"'}</b> - will match entries
+                              having `sun and beach´ in the name
+                              <br />
+                              💡 <b>{"'sun 'beach"}</b> - will match entries
+                              having sun or beach in the name
+                              <br />
+                              💡 <b>{'!sun'}</b> - will match entries which do
+                              not contain sun
+                              <br />
+                              💡 <b>{'^sun'}</b> - will match entries beginning
+                              with sun
+                              <br />
+                              💡 <b>{'!^sun'}</b> - will match entries witch do
+                              not begin with sun
+                              <br />
+                              💡 <b>{'.pdf$'}</b> - will match entries ending
+                              with .pdf
+                              <br />
+                              💡 <b>{'!.pdf$'}</b> - will match entries not
+                              ending with .pdf
+                              <br />
+                            </Typography>
+                          </>
+                        }
+                      >
+                        <InfoTooltipIcon />
+                      </Tooltip>
+                    </InputAdornment>
+                  ),
+                },
+              }}
             />
           </Grid>
         </Grid>
-        <FormControl className={classes.formControl} disabled={isIndexing}>
+        <FormControl
+          className={classes.formControl}
+          disabled={isIndexing !== undefined}
+        >
           <ToggleButtonGroup
             onChange={switchSearchBoxing}
             size="small"
@@ -633,11 +619,14 @@ function SearchPopover(props: Props) {
               <Tooltip title={t('searchInAllLocationTooltip')}>
                 <div>{t('globalSearch')}</div>
               </Tooltip>
-              {Pro ? <BetaLabel /> : <ProLabel />}
+              <ProLabel />
             </ToggleButton>
           </ToggleButtonGroup>
         </FormControl>
-        <FormControl className={classes.formControl} disabled={isIndexing}>
+        <FormControl
+          className={classes.formControl}
+          disabled={isIndexing !== undefined}
+        >
           <ToggleButtonGroup
             onChange={switchSearchType}
             size="small"
@@ -662,7 +651,10 @@ function SearchPopover(props: Props) {
             </ToggleButton>
           </ToggleButtonGroup>
         </FormControl>
-        <FormControl className={classes.formControl} disabled={isIndexing}>
+        <FormControl
+          className={classes.formControl}
+          disabled={isIndexing !== undefined}
+        >
           <ToggleButtonGroup
             onChange={() => {
               forceIndexing.current = !forceIndexing.current;
@@ -685,7 +677,10 @@ function SearchPopover(props: Props) {
             </ToggleButton>
           </ToggleButtonGroup>
         </FormControl>
-        <FormControl className={classes.formControl} disabled={isIndexing}>
+        <FormControl
+          className={classes.formControl}
+          disabled={isIndexing !== undefined}
+        >
           <TagsSelect
             dataTid="searchTagsAndTID"
             placeholderText={t('core:selectTags')}
@@ -696,7 +691,10 @@ function SearchPopover(props: Props) {
             tagMode="remove"
           />
         </FormControl>
-        <FormControl className={classes.formControl} disabled={isIndexing}>
+        <FormControl
+          className={classes.formControl}
+          disabled={isIndexing !== undefined}
+        >
           <TagsSelect
             dataTid="searchTagsOrTID"
             placeholderText={t('core:selectTags')}
@@ -707,7 +705,10 @@ function SearchPopover(props: Props) {
             tagMode="remove"
           />
         </FormControl>
-        <FormControl className={classes.formControl} disabled={isIndexing}>
+        <FormControl
+          className={classes.formControl}
+          disabled={isIndexing !== undefined}
+        >
           <TagsSelect
             dataTid="searchTagsNotTID"
             placeholderText={t('core:selectTags')}
@@ -720,122 +721,119 @@ function SearchPopover(props: Props) {
         </FormControl>
         <FormControl
           className={classes.formControl}
-          disabled={isIndexing || !Pro}
+          disabled={isIndexing !== undefined || !Pro}
         >
           <ProTooltip tooltip={t('filterByTypTooltip')}>
-            <InputLabel htmlFor="file-type">{t('core:fileType')}</InputLabel>
+            <FormHelperText style={{ marginLeft: 0 }}>
+              {t('core:fileType')}
+            </FormHelperText>
             <Select
               fullWidth
               value={JSON.stringify(fileTypes.current)}
               onChange={handleFileTypeChange}
-              input={
-                <OutlinedInput
-                  name="fileTypes"
-                  id="file-type"
-                  label={t('core:fileType')}
-                />
-              }
+              size={desktopMode ? 'small' : 'medium'}
+              input={<OutlinedInput name="fileTypes" id="file-type" />}
             >
               <MenuItem value={JSON.stringify(FileTypeGroups.any)}>
                 {t('core:anyType')}
               </MenuItem>
               <MenuItem value={JSON.stringify(FileTypeGroups.folders)}>
-                <IconButton size="large">
+                <TsIconButton size="small">
                   <FolderIcon />
-                </IconButton>
+                </TsIconButton>
                 {t('core:searchFolders')}
               </MenuItem>
               <MenuItem value={JSON.stringify(FileTypeGroups.files)}>
-                <IconButton size="large">
+                <TsIconButton size="small">
                   <FileIcon />
-                </IconButton>
+                </TsIconButton>
                 {t('core:searchFiles')}
               </MenuItem>
               <MenuItem value={JSON.stringify(FileTypeGroups.untagged)}>
-                <IconButton size="large">
+                <TsIconButton size="small">
                   <UntaggedIcon />
-                </IconButton>
+                </TsIconButton>
                 {t('core:searchUntaggedEntries')}
               </MenuItem>
               <MenuItem
                 value={JSON.stringify(FileTypeGroups.images)}
                 title={FileTypeGroups.images.toString()}
               >
-                <IconButton size="large">
+                <TsIconButton size="small">
                   <PictureIcon />
-                </IconButton>
+                </TsIconButton>
                 {t('core:searchPictures')}
               </MenuItem>
               <MenuItem
                 value={JSON.stringify(FileTypeGroups.documents)}
                 title={FileTypeGroups.documents.toString()}
               >
-                <IconButton size="large">
+                <TsIconButton size="small">
                   <DocumentIcon />
-                </IconButton>
+                </TsIconButton>
                 {t('core:searchDocuments')}
               </MenuItem>
               <MenuItem
                 value={JSON.stringify(FileTypeGroups.notes)}
                 title={FileTypeGroups.notes.toString()}
               >
-                <IconButton size="large">
+                <TsIconButton size="small">
                   <NoteIcon />
-                </IconButton>
+                </TsIconButton>
                 {t('core:searchNotes')}
               </MenuItem>
               <MenuItem
                 value={JSON.stringify(FileTypeGroups.audio)}
                 title={FileTypeGroups.audio.toString()}
               >
-                <IconButton size="large">
+                <TsIconButton size="small">
                   <AudioIcon />
-                </IconButton>
+                </TsIconButton>
                 {t('core:searchAudio')}
               </MenuItem>
               <MenuItem
                 value={JSON.stringify(FileTypeGroups.video)}
                 title={FileTypeGroups.video.toString()}
               >
-                <IconButton size="large">
+                <TsIconButton size="small">
                   <VideoIcon />
-                </IconButton>
+                </TsIconButton>
                 {t('core:searchVideoFiles')}
               </MenuItem>
               <MenuItem
                 value={JSON.stringify(FileTypeGroups.archives)}
                 title={FileTypeGroups.archives.toString()}
               >
-                <IconButton size="large">
+                <TsIconButton size="small">
                   <ArchiveIcon />
-                </IconButton>
+                </TsIconButton>
                 {t('core:searchArchives')}
               </MenuItem>
               <MenuItem
                 value={JSON.stringify(FileTypeGroups.bookmarks)}
                 title={FileTypeGroups.bookmarks.toString()}
               >
-                <IconButton size="large">
+                <TsIconButton size="small">
                   <BookmarkIcon />
-                </IconButton>
+                </TsIconButton>
                 {t('core:searchBookmarks')}
               </MenuItem>
               <MenuItem
                 value={JSON.stringify(FileTypeGroups.ebooks)}
                 title={FileTypeGroups.ebooks.toString()}
               >
-                <IconButton size="large">
+                <TsIconButton size="small">
                   <BookIcon />
-                </IconButton>
+                </TsIconButton>
                 {t('core:searchEbooks')}
               </MenuItem>
               <MenuItem
                 value={JSON.stringify(FileTypeGroups.emails)}
                 title={FileTypeGroups.emails.toString()}
               >
-                <IconButton size="large">
+                <TsIconButton size="small">
                   <EmailIcon />
-                </IconButton>
+                </TsIconButton>
                 {t('core:searchEmails')}
               </MenuItem>
             </Select>
@@ -843,27 +841,18 @@ function SearchPopover(props: Props) {
         </FormControl>
         <FormControl
           className={classes.formControl}
-          disabled={isIndexing || !Pro}
+          disabled={isIndexing !== undefined || !Pro}
         >
           <ProTooltip tooltip={t('filterBySizeTooltip')}>
-            <InputLabel
-              style={{ backgroundColor: theme.palette.background.default }}
-              shrink
-              htmlFor="file-size"
-            >
+            <FormHelperText style={{ marginLeft: 0 }}>
               {t('core:sizeSearchTitle')}
-            </InputLabel>
+            </FormHelperText>
             <Select
               fullWidth
               value={fileSize.current}
               onChange={handleFileSizeChange}
-              input={
-                <OutlinedInput
-                  name="fileSize"
-                  id="file-size"
-                  label={t('core:sizeSearchTitle')}
-                />
-              }
+              size={desktopMode ? 'small' : 'medium'}
+              input={<OutlinedInput name="fileSize" id="file-size" />}
               displayEmpty
             >
               <MenuItem value="">{t('core:sizeAny')}</MenuItem>
@@ -897,26 +886,19 @@ function SearchPopover(props: Props) {
         </FormControl>
         <FormControl
           className={classes.formControl}
-          disabled={isIndexing || !Pro}
+          disabled={isIndexing !== undefined || !Pro}
         >
           <ProTooltip tooltip={t('filterByLastModifiedDateTooltip')}>
-            <InputLabel
-              style={{ backgroundColor: theme.palette.background.default }}
-              shrink
-              htmlFor="modification-date"
-            >
+            <FormHelperText style={{ marginLeft: 0 }}>
               {t('core:lastModifiedSearchTitle')}
-            </InputLabel>
+            </FormHelperText>
             <Select
               fullWidth
               value={lastModified.current}
               onChange={handleLastModifiedChange}
+              size={desktopMode ? 'small' : 'medium'}
               input={
-                <OutlinedInput
-                  name="lastModified"
-                  id="modification-date"
-                  label={t('core:lastModifiedSearchTitle')}
-                />
+                <OutlinedInput name="lastModified" id="modification-date" />
               }
               displayEmpty
             >
@@ -933,72 +915,50 @@ function SearchPopover(props: Props) {
         </FormControl>
         <FormControl className={classes.formControl}>
           <ProTooltip tooltip={t('enterTimePeriodTooltip')}>
-            <LocalizationProvider
-              dateAdapter={AdapterDateFns}
-              /*utils={DateFnsUtils}*/
-            >
+            <LocalizationProvider dateAdapter={AdapterDateFns}>
               <Box position="relative" display="inline-flex">
-                <DatePicker
-                  label={t('enterTagTimePeriodFrom')}
-                  disabled={isIndexing || !Pro}
-                  inputFormat="yyyy-MM-dd"
-                  value={new Date(tagTimePeriodFrom)}
-                  onChange={(fromDataTime: Date) => {
-                    if (fromDataTime) {
-                      setSearchQuery({
-                        ...searchQuery,
-                        tagTimePeriodFrom: fromDataTime.getTime(),
-                        executeSearch: false,
-                      });
-                    }
-                  }}
-                  renderInput={(params) => <TextField {...params} />}
-                />
-                <DatePicker
-                  label={t('enterTagTimePeriodTo')}
-                  disabled={isIndexing || !Pro}
-                  inputFormat="yyyy-MM-dd"
-                  value={new Date(tagTimePeriodTo)}
-                  onChange={(toDataTime: Date) => {
-                    if (toDataTime) {
-                      setSearchQuery({
-                        ...searchQuery,
-                        tagTimePeriodTo: toDataTime.getTime(),
-                        executeSearch: false,
-                      });
-                    }
-                  }}
-                  renderInput={(params) => (
-                    <TextField style={{ marginLeft: 5 }} {...params} />
-                  )}
-                />
+                <div>
+                  <FormHelperText style={{ marginLeft: 0, marginTop: 0 }}>
+                    {t('core:enterTagTimePeriodFrom')}
+                  </FormHelperText>
+                  <DatePicker
+                    disabled={isIndexing !== undefined || !Pro}
+                    format="yyyy-MM-dd"
+                    value={tagTimePeriodFrom && new Date(tagTimePeriodFrom)}
+                    onChange={(fromDataTime: Date) => {
+                      if (fromDataTime) {
+                        setSearchQuery({
+                          ...searchQuery,
+                          tagTimePeriodFrom: fromDataTime.getTime(),
+                          executeSearch: false,
+                        });
+                      }
+                    }}
+                  />
+                </div>
+                <div style={{ marginLeft: 5 }}>
+                  <FormHelperText style={{ marginLeft: 0, marginTop: 0 }}>
+                    {t('core:enterTagTimePeriodTo')}
+                  </FormHelperText>
+                  <DatePicker
+                    disabled={isIndexing !== undefined || !Pro}
+                    format="yyyy-MM-dd"
+                    value={tagTimePeriodTo && new Date(tagTimePeriodTo)}
+                    onChange={(toDataTime: Date) => {
+                      if (toDataTime) {
+                        setSearchQuery({
+                          ...searchQuery,
+                          tagTimePeriodTo: toDataTime.getTime(),
+                          executeSearch: false,
+                        });
+                      }
+                    }}
+                  />
+                </div>
               </Box>
             </LocalizationProvider>
-            {/*<TextField
-              id="tagTimePeriod"
-              label={t('enterTimePeriod')}
-              value={tagTimePeriod.current}
-              disabled={indexing || !Pro}
-              onChange={handleTimePeriodChange}
-              onKeyDown={startSearch}
-              helperText={tagTimePeriodHelper.current}
-              error={tagTimePeriodHelper.current.length < 1}
-              style={{ width: '100%' }}
-              InputProps={{
-                endAdornment: (
-                    <InputAdornment
-                      position="end"
-                      title="201905 for May 2019 / 20190412 for 12th of April 2019 / 20190501~124523 for specific time"
-                    >
-                      <IconButton size="large">
-                        <DateIcon />
-                      </IconButton>
-                    </InputAdornment>
-                )
-              }}
-            />*/}
           </ProTooltip>
-          {/* <TextField
+          {/* <TsTextField
                 id="tagPlace"
                 label={t('GPS coordinates or plus code')}
                 value={tagPlace}
@@ -1029,34 +989,29 @@ function SearchPopover(props: Props) {
           padding: 5,
         }}
       >
-        <Button
-          size="small"
-          variant="text"
+        <TsButton
           data-tid="helpSearchButtonTID"
           onClick={() =>
             openURLExternally(Links.documentationLinks.search, true)
           }
         >
           {t('help')}
-        </Button>
+        </TsButton>
         <div>
-          <Button
-            variant="text"
-            size="small"
-            onClick={clearSearch}
-            id="resetSearchButton"
-          >
+          <TsButton onClick={clearSearch} id="resetSearchButton">
             {t('resetBtn')}
-          </Button>
-          <Button
-            disabled={isIndexing}
+          </TsButton>
+          <TsButton
+            style={{ marginLeft: AppConfig.defaultSpaceBetweenButtons }}
             variant="contained"
+            disabled={isIndexing !== undefined}
             id="searchButtonAdvTID"
             onClick={executeSearch}
-            size="small"
           >
-            {isIndexing ? 'Search disabled while indexing' : t('searchTitle')}
-          </Button>
+            {isIndexing !== undefined
+              ? 'Search disabled while indexing'
+              : t('searchTitle')}
+          </TsButton>
         </div>
       </div>
       {SaveSearchDialog && saveSearchDialogOpened !== undefined && (

@@ -1,6 +1,6 @@
 /**
  * TagSpaces - universal file and folder organizer
- * Copyright (C) 2017-present TagSpaces UG (haftungsbeschraenkt)
+ * Copyright (C) 2017-present TagSpaces GmbH
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License (version 3) as
@@ -17,12 +17,11 @@
  */
 
 import React from 'react';
-import { bindActionCreators } from 'redux';
 import { useDispatch, useSelector } from 'react-redux';
 import { styled } from '@mui/material/styles';
 import Snackbar from '@mui/material/Snackbar';
-import Button from '@mui/material/Button';
-import IconButton from '@mui/material/IconButton';
+import TsButton from '-/components/TsButton';
+import TsIconButton from '-/components/TsIconButton';
 import CloseIcon from '@mui/icons-material/Close';
 import { getLastPublishedVersion } from '-/reducers/settings';
 import {
@@ -36,12 +35,14 @@ import { openURLExternally } from '-/services/utils-io';
 import { useTranslation } from 'react-i18next';
 import { useNotificationContext } from '-/hooks/useNotificationContext';
 import { useLocationIndexContext } from '-/hooks/useLocationIndexContext';
+import i18n from '-/services/i18n';
+import AppConfig from '-/AppConfig';
 
 const TSNotification = styled(Snackbar)(({ theme }) => {
   return {
     root: {
       '& .MuiSnackbarContent-root': {
-        borderRadius: 10,
+        borderRadius: AppConfig.defaultCSSRadius,
       },
     },
   };
@@ -88,16 +89,15 @@ function PageNotification() {
         autoHideDuration={notificationStatus.autohide ? 3000 : undefined}
         message={notificationStatus.text}
         action={[
-          <IconButton
+          <TsIconButton
             data-tid={'close' + notificationStatus.tid}
             key="close"
             aria-label={t('core:closeButton')}
             color="inherit"
             onClick={() => hideNotifications()}
-            size="large"
           >
             <CloseIcon />
-          </IconButton>,
+          </TsIconButton>,
         ]}
       />
       {isGeneratingThumbs && (
@@ -107,33 +107,31 @@ function PageNotification() {
           autoHideDuration={undefined}
           message={t('core:loadingOrGeneratingThumbnails')}
           action={[
-            <IconButton
+            <TsIconButton
               key="closeButton"
               aria-label={t('core:closeButton')}
               color="inherit"
               onClick={() => setGeneratingThumbs(false)}
-              size="large"
             >
               <CloseIcon />
-            </IconButton>,
+            </TsIconButton>,
           ]}
         />
       )}
       <TSNotification
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-        open={isIndexing}
+        open={isIndexing !== undefined}
         autoHideDuration={undefined}
-        message="Indexing"
+        message={i18n.t('indexing') + ': ' + isIndexing}
         action={[
-          <Button
+          <TsButton
             key="cancelIndexButton"
             color="secondary"
-            size="small"
             onClick={() => cancelDirectoryIndexing()}
             data-tid="cancelDirectoryIndexing"
           >
             {t('core:cancelIndexing')}
-          </Button>,
+          </TsButton>,
         ]}
       />
       <TSNotification
@@ -142,30 +140,19 @@ function PageNotification() {
         autoHideDuration={undefined}
         message={'Version ' + lastPublishedVersion + ' available.'}
         action={[
-          <Button
-            key="laterButton"
-            color="secondary"
-            size="small"
-            onClick={skipRelease}
-          >
+          <TsButton key="laterButton" color="secondary" onClick={skipRelease}>
             {t('core:later')}
-          </Button>,
-          <Button
+          </TsButton>,
+          <TsButton
             key="changelogButton"
             color="secondary"
-            size="small"
             onClick={openChangelogPage}
           >
             {t('core:releaseNotes')}
-          </Button>,
-          <Button
-            key="latestVersionButton"
-            color="primary"
-            size="small"
-            onClick={getLatestVersion}
-          >
+          </TsButton>,
+          <TsButton key="latestVersionButton" onClick={getLatestVersion}>
             {t('core:getItNow')}
-          </Button>,
+          </TsButton>,
         ]}
       />
     </>
