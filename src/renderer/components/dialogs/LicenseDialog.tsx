@@ -91,11 +91,13 @@ function LicenseDialog(props: Props) {
             {t('core:print')}
           </TsButton>
         )}
-        {/* Native mobile: the license is shown for information only (the store
-            handles the EULA and the AGPL doesn't gate running the app), so no
-            accept/decline. A self-terminating "Quit" also violates store
-            review guidelines, so it's desktop-only. */}
-        {!AppConfig.isNativeMobile && (
+        {/* Quit (refuse) only makes sense when acceptance is actually a
+            precondition to use — i.e. the Pro EULA. The AGPL doesn't require
+            end-user acceptance to run a copy (AGPLv3 §9), so the Lite build
+            shows the license for information only, with no accept/refuse gate.
+            Native mobile never gets a Quit button either: the store handles the
+            EULA and a self-terminating "Quit" violates store review guidelines. */}
+        {Pro && !AppConfig.isNativeMobile && (
           <TsButton data-tid="confirmLicenseDialog" onClick={quitApp}>
             {t('core:quit')}
           </TsButton>
@@ -105,7 +107,12 @@ function LicenseDialog(props: Props) {
           onClick={props.onClose}
           variant="contained"
         >
-          {AppConfig.isNativeMobile ? t('core:ok') : t('core:agreeLicense')}
+          {/* "I Agree" only for the Pro EULA (real acceptance). For the AGPL
+              build it's informational, so just "Close" — the user isn't
+              agreeing to anything, only acknowledging they've seen it. */}
+          {Pro && !AppConfig.isNativeMobile
+            ? t('core:agreeLicense')
+            : t('core:closeButton')}
         </TsButton>
       </TsDialogActions>
     </Dialog>

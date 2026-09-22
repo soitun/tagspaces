@@ -31,16 +31,16 @@ test.afterEach(async ({ isWeb }) => {
 
 test.describe('TST91 - Onboarding flow', () => {
   test('TST9101 - License dialog shown on first run [electron,web,s3]', async () => {
-    // The license dialog blocks until accepted. Its primary CTA is the
-    // "Agree License" button; the "Quit" button is the alternative.
+    // The license dialog auto-shows on first run in every build. Its primary
+    // action button (data-tid stays `agreeLicenseDialog` regardless of label)
+    // is always present. Whether it also offers a "Quit" (refuse) button is
+    // build-specific — the Pro EULA gate has one, the AGPL info dialog does
+    // not — so that assertion lives in TST9106 (_pro) / TST9107 (_lite).
     const agreeBtn = await global.client.waitForSelector(
       '[data-tid=agreeLicenseDialog]',
       { timeout: 10000, state: 'visible' },
     );
     expect(agreeBtn).toBeTruthy();
-
-    const quitBtn = await global.client.$('[data-tid=confirmLicenseDialog]');
-    expect(quitBtn).toBeTruthy();
   });
 
   test('TST9102 - Accepting license opens the onboarding wizard [electron,web,s3]', async () => {
@@ -107,10 +107,10 @@ test.describe('TST91 - Onboarding flow', () => {
   });
 
   test('TST9105 - License dialog only closes via its action buttons [electron,web,s3]', async () => {
-    // The dialog should ignore Escape and backdrop clicks — only the
-    // Agree / Quit buttons inside it may dismiss it. We can verify Escape
-    // and backdrop, plus the Agree button. We don't click Quit because
-    // it terminates the Electron app.
+    // The dialog should ignore Escape and backdrop clicks — only the action
+    // button(s) inside it may dismiss it. We verify Escape and backdrop, plus
+    // the primary button. (The build-specific Quit button is covered in
+    // TST9106; we don't click it here as it would terminate the app.)
     await global.client.waitForSelector('[data-tid=agreeLicenseDialog]', {
       timeout: 10000,
       state: 'visible',
@@ -132,17 +132,47 @@ test.describe('TST91 - Onboarding flow', () => {
       await global.client.isVisible('[data-tid=agreeLicenseDialog]'),
     ).toBe(true);
 
-    // The Quit button must exist (alternative CTA) — we don't click it,
-    // since it would terminate the app and end the test session.
-    const quitBtn = await global.client.$('[data-tid=confirmLicenseDialog]');
-    expect(quitBtn).toBeTruthy();
-
-    // The Agree button must close the dialog.
+    // The primary button must close the dialog.
     await global.client.click('[data-tid=agreeLicenseDialog]');
     await global.client.waitForSelector('[data-tid=agreeLicenseDialog]', {
       timeout: 5000,
       state: 'hidden',
     });
+  });
+
+  // The license *acceptance* gate (Quit/refuse + "I Agree") is only legally
+  // meaningful for the Pro EULA. The AGPL (Lite) doesn't require end-user
+  // acceptance to run the app (AGPLv3 §9), so the Lite build shows the license
+  // for information only: no Quit button, and the primary button reads "Close"
+  // rather than "I Agree". These two tests pin each build's behavior.
+  test('TST9106 - Pro EULA offers accept/refuse gate [electron,_pro]', async () => {
+    await global.client.waitForSelector('[data-tid=agreeLicenseDialog]', {
+      timeout: 10000,
+      state: 'visible',
+    });
+    // Pro: a Quit (refuse) button is present alongside the accept button.
+    const quitBtn = await global.client.$('[data-tid=confirmLicenseDialog]');
+    expect(quitBtn).toBeTruthy();
+    // Primary button is an acceptance CTA ("I Agree"), not a plain "Close".
+    const label = await global.client.textContent(
+      '[data-tid=agreeLicenseDialog]',
+    );
+    expect(label.trim().toLowerCase()).toContain('agree');
+  });
+
+  test('TST9107 - AGPL dialog is informational, no refuse gate [electron,_lite]', async () => {
+    await global.client.waitForSelector('[data-tid=agreeLicenseDialog]', {
+      timeout: 10000,
+      state: 'visible',
+    });
+    // Lite/AGPL: no Quit button — nothing to refuse.
+    const quitBtn = await global.client.$('[data-tid=confirmLicenseDialog]');
+    expect(quitBtn).toBeFalsy();
+    // Primary button acknowledges ("Close"), it is not an "I Agree" CTA.
+    const label = await global.client.textContent(
+      '[data-tid=agreeLicenseDialog]',
+    );
+    expect(label.trim().toLowerCase()).not.toContain('agree');
   });
 
   test('TST9104 - Closing the wizard marks onboarding completed [electron,web,s3]', async () => {
