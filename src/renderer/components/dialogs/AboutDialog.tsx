@@ -115,6 +115,11 @@ function AboutDialog(props: Props) {
     }
   }
 
+  // The web build can be publicly self-hosted by third parties (not
+  // recommended, but possible), so the default TagSpaces imprint / privacy
+  // links are blanked there — otherwise a self-hoster's users would be shown
+  // *our* legal pages. A legitimate host sets its own via ExtImprintURL /
+  // ExtPrivacyURL, which still take effect below.
   let privacyURL = Links.links.privacyURL;
   if (AppConfig.isWeb) {
     privacyURL = '';
@@ -200,19 +205,46 @@ function AboutDialog(props: Props) {
           </TsButton>
           <br />
           {!Pro && (
-            <span>
+            <span
+              style={{
+                display: 'inline-block',
+                marginTop: 8,
+                fontSize: '0.85rem',
+              }}
+            >
               This program is free software: you can redistribute it and/or
               modify it under the terms of the GNU Affero General Public License
               (version 3) as published by the Free Software Foundation.
             </span>
           )}
           <br />
-          This program is distributed in the hope that it will be useful, but
-          WITHOUT ANY WARRANTY; without even the implied warranty of
-          MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the License
-          for more details.
-          <br />
-          <br />
+          {/* Warranty disclaimer, shown for both builds with build-appropriate
+              wording: the free build references the AGPL, Pro references the
+              EULA  */}
+          <span
+            style={{
+              display: 'inline-block',
+              marginTop: 8,
+              marginBottom: 8,
+              fontSize: '0.85rem',
+            }}
+            data-tid="aboutWarrantyDisclaimer"
+          >
+            {Pro
+              ? 'To the extent permissible by applicable law and subject to the End-User License Agreement (EULA), the Software is provided "as is", without warranty of any kind, express or implied. Nothing in this notice excludes or limits any warranty, guarantee or statutory right that cannot be excluded or limited under applicable law, including the statutory rights of consumers.'
+              : 'To the extent permissible by applicable law, the Software is provided "as is", without warranty of any kind, express or implied, including but not limited to the warranties of merchantability, fitness for a particular purpose and noninfringement. Except as required by applicable law, in no event shall the authors or copyright holders be liable for any claim, damages or other liability, whether in an action of contract, tort or otherwise, arising from, out of or in connection with the Software or the use or other dealings in the Software.'}
+            <br />
+            <span
+              style={{
+                display: 'inline-block',
+                marginTop: 8,
+                fontSize: '0.85rem',
+              }}
+            >
+              This is a summary provided in English for information only. The
+              full and authoritative terms are set out in the License below.
+            </span>
+          </span>
           {imprintURL && (
             <TsButton
               sx={{ marginRight: AppConfig.defaultSpaceBetweenButtons }}
@@ -235,6 +267,15 @@ function AboutDialog(props: Props) {
               {t('core:privacyPolicy')}
             </TsButton>
           )}
+
+          <TsButton
+            sx={{ marginRight: AppConfig.defaultSpaceBetweenButtons }}
+            variant="text"
+            data-tid="openLicenseDialog"
+            onClick={() => openLicenseDialog()}
+          >
+            {t('core:license')}
+          </TsButton>
           <TsButton
             sx={{ marginRight: AppConfig.defaultSpaceBetweenButtons }}
             variant="text"
@@ -243,14 +284,6 @@ function AboutDialog(props: Props) {
             }}
           >
             {t('core:changelog')}
-          </TsButton>
-          <TsButton
-            sx={{ marginRight: AppConfig.defaultSpaceBetweenButtons }}
-            variant="text"
-            data-tid="openLicenseDialog"
-            onClick={() => openLicenseDialog()}
-          >
-            {t('core:license')}
           </TsButton>
           <TsButton
             sx={{ marginRight: AppConfig.defaultSpaceBetweenButtons }}
